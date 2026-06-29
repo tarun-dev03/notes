@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+
 export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+
   useEffect(() => {
     if (editingNote) {
       setTitle(editingNote.title);
@@ -13,32 +15,32 @@ export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode
   }, [editingNote]);
 
   function handleSave() {
-    // Don't save if both fields are empty
     if (!title.trim() && !content.trim()) return;
-
-    onSave({
-      title,
-      content,
-    });
-
+    onSave({ title, content });
     onClose();
   }
 
+  const inputClass = `w-full rounded-xl p-3 text-sm outline-none border transition-colors ${
+    darkMode
+      ? "bg-white/5 border-white/8 text-white/80 placeholder:text-white/25 focus:border-blue-700/60"
+      : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-blue-400"
+  }`;
+
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className={`rounded-3xl p-6 w-full max-w-lg animate-fade-up ${
+        className={`rounded-3xl p-6 w-full max-w-lg animate-fade-up border ${
           darkMode
-            ? "bg-slate-800/95 text-white border border-slate-700"
-            : "bg-white/95 border border-white"
+            ? "bg-[#0f0f14]/95 border-white/8 text-white backdrop-blur-xl"
+            : "bg-white/95 border-white shadow-xl"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-4">
-          {editingNote ? "Edit Note" : "Create New Note"}
+        <h2 className={`text-xl font-bold mb-5 ${darkMode ? "text-white/85" : "text-slate-800"}`}>
+          {editingNote ? "Edit Note" : "New Note"}
         </h2>
 
         <input
@@ -46,11 +48,7 @@ export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className={`w-full border rounded-xl p-3 mb-4 ${
-            darkMode
-              ? "bg-slate-900 border-slate-700 placeholder:text-slate-400"
-              : "bg-white border-slate-200"
-          }`}
+          className={`${inputClass} mb-3`}
         />
 
         <textarea
@@ -58,18 +56,16 @@ export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode
           rows="6"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className={`w-full border rounded-xl p-3 ${
-            darkMode
-              ? "bg-slate-900 border-slate-700 placeholder:text-slate-400"
-              : "bg-white border-slate-200"
-          }`}
+          className={inputClass}
         />
 
-        <div className="flex justify-end gap-3 mt-4">
+        <div className="flex justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className={`px-4 py-2 rounded-xl border ${
-              darkMode ? "border-slate-600" : "border-slate-200"
+            className={`px-4 py-2 rounded-xl text-sm border transition-colors ${
+              darkMode
+                ? "border-white/10 text-white/50 hover:bg-white/6"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
             Cancel
@@ -77,7 +73,7 @@ export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode
 
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-xl bg-sky-500 text-white"
+            className="px-5 py-2 rounded-xl text-sm font-medium bg-blue-900 hover:bg-blue-800 text-white transition-colors shadow-lg shadow-blue-950/40"
           >
             Save
           </button>

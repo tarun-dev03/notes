@@ -2,6 +2,7 @@ import { useState } from "react";
 import WelcomeScreen from "./WelcomeScreen";
 import Dashboard from "./components/Dashboard";
 import { loadUser, saveUser, clearUser } from "./utils/localStorage";
+import { supabase } from "./Supabase";
 
 export default function App() {
   const [user, setUser] = useState(() => loadUser());
@@ -11,7 +12,8 @@ export default function App() {
     setUser(userData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut(); // ← clears the Supabase session
     clearUser();
     setUser(null);
   };

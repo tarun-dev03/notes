@@ -4,18 +4,25 @@ export default function Statscard({ title, count, darkMode, onClick }) {
   return (
     <Component
       onClick={onClick}
-      className={`rounded-2xl p-5 shadow-sm border text-left w-full transition animate-fade-up ${
+      className={`rounded-2xl p-5 border text-left w-full transition-all animate-fade-up ${
         darkMode
-          ? "bg-slate-900/80 border-slate-700"
-          : "bg-white/85 border-white"
-      } ${onClick ? (darkMode ? "hover:bg-slate-800 hover:-translate-y-0.5" : "hover:bg-sky-50 hover:-translate-y-0.5") : ""}`}
+          ? "bg-white/4 border-white/6 hover:bg-white/7 hover:-translate-y-0.5"
+          : "bg-white/85 border-white hover:bg-sky-50 hover:-translate-y-0.5"
+      }`}
     >
-      <h3 className={`text-sm ${darkMode ? "text-slate-300" : "text-gray-500"}`}>
+      <h3 className={`text-xs font-medium uppercase tracking-wide ${
+        darkMode ? "text-white/35" : "text-gray-400"
+      }`}>
         {title}
       </h3>
 
-      <p className="text-3xl font-bold mt-2">{count}</p>
-      <p className={`text-xs mt-1 ${darkMode ? "text-emerald-300" : "text-emerald-600"}`}>+2 this week</p>
+      <p className={`text-3xl font-bold mt-2 ${darkMode ? "text-white" : "text-slate-800"}`}>
+        {count}
+      </p>
+
+      <p className={`text-xs mt-1 ${darkMode ? "text-emerald-400/70" : "text-emerald-600"}`}>
+        +2 this week
+      </p>
     </Component>
   );
 }
