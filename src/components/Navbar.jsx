@@ -10,6 +10,7 @@ export default function Navbar({
   onMenuToggle,
 }) {
   const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  const showNotifications = false; 
 
   const iconBtn = darkMode
     ? "w-10 h-10 rounded-xl grid place-items-center transition-colors bg-white/5 border border-white/8 text-white/50 hover:bg-white/10 hover:text-white/80"
@@ -49,9 +50,11 @@ export default function Navbar({
       </div>
 
       <div className="flex items-center gap-3 lg:ml-4">
-        <button className={iconBtn} aria-label="Notifications">
-          <FiBell size={16} />
-        </button>
+        {showNotifications && (
+      <button className={iconBtn} aria-label="Notifications">
+        <FiBell size={16} />
+      </button>
+      )}
 
         <button
           onClick={() => setDarkMode(!darkMode)}
@@ -67,7 +70,7 @@ export default function Navbar({
           className={`px-3 h-10 rounded-xl flex items-center gap-2 text-sm font-medium transition-all ${
             darkMode
               ? "bg-white/8 border border-white/10 text-white/70 hover:bg-white/12 hover:text-white"
-              : "bg-linear-to-r from-blue-600 to-indigo-600 text-white hover:opacity-95"
+              : " bg-blue-900 hover:bg-blue-800 text-white hover:opacity-95"
           }`}
         >
           <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold ${

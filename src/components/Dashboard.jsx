@@ -8,18 +8,8 @@ import CreateNoteModal from "./CreateNoteModal";
 import Particles from "./Particles";
 
 import { useState, useEffect } from "react";
-import { notes as initialNotes } from "../data/dummynotes";
-import { saveNotes, loadNotes, saveDarkMode, loadDarkMode } from "../utils/localStorage";
-
-function normalizeNote(note) {
-  return {
-    favorite: false,
-    pinned: false,
-    shared: false,
-    deleted: false,
-    ...note,
-  };
-}
+import { saveDarkMode, loadDarkMode } from "../utils/localStorage";
+import { fetchNotes, createNote, updateNote, deleteNote } from "../utils/supabaseNotes";
 
 export default function Dashboard({ user, onLogout }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,14 +18,20 @@ export default function Dashboard({ user, onLogout }) {
   const [activeSection, setActiveSection] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => loadDarkMode());
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [notes, setNotes] = useState(() => {
-    const storedNotes = loadNotes();
-    if (storedNotes.length > 0) return storedNotes.map(normalizeNote);
-    return initialNotes;
-  });
+  // Load notes from Supabase on mount
+  useEffect(() => {
+    const loadNotes = async () => {
+      setLoading(true);
+      const data = await fetchNotes();
+      setNotes(data);
+      setLoading(false);
+    };
+    loadNotes();
+  }, []);
 
-  useEffect(() => { saveNotes(notes); }, [notes]);
   useEffect(() => { saveDarkMode(darkMode); }, [darkMode]);
 
   const activeNotes = notes.filter((note) => !note.deleted);
@@ -68,6 +64,63 @@ export default function Dashboard({ user, onLogout }) {
   const openCreateModal = () => {
     setEditingNote(null);
     setIsModalOpen(true);
+  };
+
+  // Save note — create or update
+  const handleSave = async (note) => {
+    if (editingNote) {
+      const updated = await updateNote(editingNote.id, {
+        title: note.title,
+        preview: note.content,
+      });
+      if (updated) {
+        setNotes(notes.map((n) => n.id === editingNote.id ? updated : n));
+      }
+    } else {
+      const created = await createNote({
+        title: note.title,
+        preview: note.content,
+      });
+      if (created) {
+        setNotes([created, ...notes]);
+      }
+    }
+    setEditingNote(null);
+    setIsModalOpen(false);
+  };
+
+  // Soft delete (move to trash) or hard delete (from trash)
+  const handleDelete = async (id) => {
+    if (activeSection === "trash") {
+      await deleteNote(id);
+      setNotes(notes.filter((note) => note.id !== id));
+    } else {
+      const updated = await updateNote(id, { deleted: true });
+      if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+    }
+  };
+
+  const handleRestore = async (id) => {
+    const updated = await updateNote(id, { deleted: false });
+    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+  };
+
+  const handleFavorite = async (id) => {
+    const note = notes.find((n) => n.id === id);
+    const updated = await updateNote(id, { favorite: !note.favorite });
+    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+  };
+
+  const handlePinned = async (id) => {
+    const note = notes.find((n) => n.id === id);
+    const updated = await updateNote(id, { pinned: !note.pinned });
+    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+  };
+
+  const handleShare = async (id) => {
+    const note = notes.find((n) => n.id === id);
+    const updated = await updateNote(id, { shared: !note.shared });
+    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
   };
 
   return (
@@ -125,28 +178,7 @@ export default function Dashboard({ user, onLogout }) {
               darkMode={darkMode}
               editingNote={editingNote}
               onClose={() => { setIsModalOpen(false); setEditingNote(null); }}
-              onSave={(note) => {
-                if (editingNote) {
-                  setNotes(notes.map((n) =>
-                    n.id === editingNote.id
-                      ? { ...n, title: note.title, preview: note.content }
-                      : n
-                  ));
-                } else {
-                  setNotes([...notes, {
-                    id: Date.now(),
-                    title: note.title,
-                    preview: note.content,
-                    date: "Just now",
-                    favorite: false,
-                    pinned: false,
-                    shared: false,
-                    deleted: false,
-                  }]);
-                }
-                setEditingNote(null);
-                setIsModalOpen(false);
-              }}
+              onSave={handleSave}
             />
           )}
 
@@ -166,24 +198,24 @@ export default function Dashboard({ user, onLogout }) {
             />
           )}
 
-          <NotesGrid
-            title={sectionTitle}
-            darkMode={darkMode}
-            showRestore={activeSection === "trash"}
-            notes={filteredNotes}
-            onDelete={(id) => {
-              if (activeSection === "trash") {
-                setNotes(notes.filter((note) => note.id !== id));
-                return;
-              }
-              setNotes(notes.map((note) => note.id === id ? { ...note, deleted: true } : note));
-            }}
-            onEdit={(note) => { setEditingNote(note); setIsModalOpen(true); }}
-            onRestore={(id) => setNotes(notes.map((note) => note.id === id ? { ...note, deleted: false } : note))}
-            onFavorite={(id) => setNotes(notes.map((note) => note.id === id ? { ...note, favorite: !note.favorite } : note))}
-            onPinned={(id) => setNotes(notes.map((note) => note.id === id ? { ...note, pinned: !note.pinned } : note))}
-            onShare={(id) => setNotes(notes.map((note) => note.id === id ? { ...note, shared: !note.shared } : note))}
-          />
+          {loading ? (
+            <div className={`mt-10 text-center text-sm ${darkMode ? "text-white/30" : "text-slate-400"}`}>
+              Loading notes...
+            </div>
+          ) : (
+            <NotesGrid
+              title={sectionTitle}
+              darkMode={darkMode}
+              showRestore={activeSection === "trash"}
+              notes={filteredNotes}
+              onDelete={handleDelete}
+              onEdit={(note) => { setEditingNote(note); setIsModalOpen(true); }}
+              onRestore={handleRestore}
+              onFavorite={handleFavorite}
+              onPinned={handlePinned}
+              onShare={handleShare}
+            />
+          )}
         </main>
       </div>
     </div>
