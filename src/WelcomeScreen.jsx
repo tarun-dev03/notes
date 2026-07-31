@@ -3,15 +3,28 @@ import { supabase } from "./Supabase";
 import loginNotesBg from "./assets/login-notes-bg.svg";
 import Particles from "./components/Particles";
 
-function getNameFromEmail(email) {
+function getNameFromEmail(email, customName) {
+  if (customName && customName.trim()) {
+    return customName.trim();
+  }
+  if (!email) return "User";
   const localPart = email.split("@")[0] || "User";
+  const parts = localPart.split(/[._-]+/).filter(Boolean);
+  if (parts.length > 0) {
+    return parts
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
   return localPart.charAt(0).toUpperCase() + localPart.slice(1);
 }
 
 export default function WelcomeScreen({ onLogin }) {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -23,7 +36,7 @@ export default function WelcomeScreen({ onLogin }) {
       if (user) {
         onLogin({
           name:
-            user.user_metadata.full_name ||
+            user.user_metadata?.full_name ||
             getNameFromEmail(user.email || "User"),
           email: user.email,
           provider: "google",
@@ -34,26 +47,98 @@ export default function WelcomeScreen({ onLogin }) {
     getUser();
   }, [onLogin]);
 
-  const handleEmailLogin = (event) => {
+  const handleEmailAuth = async (event) => {
     event.preventDefault();
     setError("");
+    setSuccessMsg("");
 
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
       setError("Please enter your email.");
       return;
     }
 
-    if (!password.trim()) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Please enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+
+    if (!password) {
       setError("Please enter your password.");
       return;
     }
 
-    // Dummy login (replace with Supabase email auth later)
-    onLogin({
-      name: getNameFromEmail(email.trim()),
-      email: email.trim(),
-      provider: "email",
-    });
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password: password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+            },
+          },
+        });
+
+        if (signUpError) {
+          throw signUpError;
+        }
+
+        if (data?.session && data?.user) {
+          onLogin({
+            name:
+              data.user.user_metadata?.full_name ||
+              getNameFromEmail(data.user.email || trimmedEmail, fullName),
+            email: data.user.email || trimmedEmail,
+            provider: "email",
+          });
+        } else if (data?.user) {
+          setSuccessMsg("Account created! Check your email to confirm registration or sign in.");
+        }
+      } else {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password: password,
+        });
+
+        if (signInError) {
+          throw signInError;
+        }
+
+        if (data?.user) {
+          onLogin({
+            name:
+              data.user.user_metadata?.full_name ||
+              getNameFromEmail(data.user.email || trimmedEmail),
+            email: data.user.email || trimmedEmail,
+            provider: "email",
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Auth error:", err);
+      const msg = err.message?.toLowerCase() || "";
+      if (msg.includes("invalid login credentials")) {
+        setError("Invalid email or password. If you haven't created an account yet, click the 'Sign Up' tab above first.");
+      } else if (msg.includes("email not confirmed")) {
+        setError("Your email address has not been confirmed yet. Please check your email inbox or disable 'Confirm email' in Supabase Dashboard.");
+      } else if (msg.includes("rate limit")) {
+        setError("Email rate limit exceeded. Please wait a few minutes before trying again.");
+      } else {
+        setError(err.message || "Authentication failed. Please check your credentials.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGuestLogin = () => {
@@ -66,6 +151,7 @@ export default function WelcomeScreen({ onLogin }) {
 
   const handleGoogleLogin = async () => {
     setError("");
+    setSuccessMsg("");
     setLoading(true);
 
     try {
@@ -138,15 +224,59 @@ export default function WelcomeScreen({ onLogin }) {
           {/* Login Card */}
           <div className="animate-fade-up [animation-delay:120ms]">
             <div className="w-full p-8 sm:p-10 rounded-[32px] bg-white/90 glass-panel border border-white/70 shadow-[0_24px_60px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              {/* Sign In / Sign Up Tabs */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(false);
+                    setError("");
+                    setSuccessMsg("");
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    !isSignUp
+                      ? "bg-white text-slate-900 shadow"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(true);
+                    setError("");
+                    setSuccessMsg("");
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    isSignUp
+                      ? "bg-white text-slate-900 shadow"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+
               <h2 className="text-3xl sm:text-4xl font-bold text-center text-slate-800">
-                Welcome Back
+                {isSignUp ? "Create Account" : "Welcome Back"}
               </h2>
 
               <p className="mt-2 text-center text-slate-500 text-base">
-                Sign in to continue
+                {isSignUp ? "Sign up to get started" : "Sign in to continue"}
               </p>
 
-              <form onSubmit={handleEmailLogin} className="mt-8 space-y-5">
+              <form onSubmit={handleEmailAuth} className="mt-6 space-y-4">
+                {isSignUp && (
+                  <input
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-white border border-slate-200 outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400 animate-fade-up"
+                  />
+                )}
+
                 <input
                   type="email"
                   placeholder="Enter your email"
@@ -164,15 +294,29 @@ export default function WelcomeScreen({ onLogin }) {
                 />
 
                 {error && (
-                  <p className="text-sm text-red-500 text-center">{error}</p>
+                  <p className="text-sm text-red-500 text-center font-medium bg-red-50 p-3 rounded-xl border border-red-200">
+                    {error}
+                  </p>
+                )}
+
+                {successMsg && (
+                  <p className="text-sm text-green-600 text-center font-medium bg-green-50 p-3 rounded-xl border border-green-200">
+                    {successMsg}
+                  </p>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-900 text-white text-base font-semibold shadow-lg hover:scale-[1.01] hover:shadow-xl transition-all duration-300 disabled:opacity-60"
-                  >
-                  Login
+                >
+                  {loading
+                    ? isSignUp
+                      ? "Creating account..."
+                      : "Signing in..."
+                    : isSignUp
+                    ? "Sign Up"
+                    : "Sign In"}
                 </button>
 
                 <button

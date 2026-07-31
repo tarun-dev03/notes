@@ -6,6 +6,7 @@ import PinnedNotes from "./Pinnednotes";
 import NotesGrid from "./NotesGrid";
 import CreateNoteModal from "./CreateNoteModal";
 import Particles from "./Particles";
+import Toast from "./Toast";
 
 import { useState, useEffect } from "react";
 import { saveDarkMode, loadDarkMode } from "../utils/localStorage";
@@ -20,6 +21,11 @@ export default function Dashboard({ user, onLogout }) {
   const [darkMode, setDarkMode] = useState(() => loadDarkMode());
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toastMsg, setToastMsg] = useState("");
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+  };
 
   // Load notes from Supabase on mount
   useEffect(() => {
@@ -37,6 +43,20 @@ export default function Dashboard({ user, onLogout }) {
   const activeNotes = notes.filter((note) => !note.deleted);
   const trashedNotes = notes.filter((note) => note.deleted);
   const pinnedNotes = activeNotes.filter((note) => note.pinned);
+
+  const isCreatedThisWeek = (note) => {
+    const dateStr = note.created_at || note.created_date;
+    if (!dateStr || dateStr === "Just now") return true;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return true;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return date >= sevenDaysAgo;
+  };
+
+  const allThisWeek = activeNotes.filter(isCreatedThisWeek).length;
+  const favThisWeek = activeNotes.filter((n) => n.favorite && isCreatedThisWeek(n)).length;
+  const pinnedThisWeek = pinnedNotes.filter(isCreatedThisWeek).length;
 
   const searchedNotes = (activeSection === "trash" ? trashedNotes : activeNotes)
     .filter(
@@ -75,6 +95,7 @@ export default function Dashboard({ user, onLogout }) {
       });
       if (updated) {
         setNotes(notes.map((n) => n.id === editingNote.id ? updated : n));
+        showToast("Note updated successfully!");
       }
     } else {
       const created = await createNote({
@@ -83,6 +104,21 @@ export default function Dashboard({ user, onLogout }) {
       });
       if (created) {
         setNotes([created, ...notes]);
+        showToast("Note created successfully!");
+      } else {
+        const localNote = {
+          id: Date.now(),
+          title: note.title,
+          preview: note.content,
+          date: "Just now",
+          created_at: new Date().toISOString(),
+          favorite: false,
+          pinned: false,
+          shared: false,
+          deleted: false,
+        };
+        setNotes([localNote, ...notes]);
+        showToast("Note saved!");
       }
     }
     setEditingNote(null);
@@ -94,37 +130,55 @@ export default function Dashboard({ user, onLogout }) {
     if (activeSection === "trash") {
       await deleteNote(id);
       setNotes(notes.filter((note) => note.id !== id));
+      showToast("Note permanently deleted.");
     } else {
       const updated = await updateNote(id, { deleted: true });
-      if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+      if (updated) {
+        setNotes(notes.map((n) => n.id === id ? updated : n));
+        showToast("Moved note to trash.");
+      }
     }
   };
 
   const handleRestore = async (id) => {
     const updated = await updateNote(id, { deleted: false });
-    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+    if (updated) {
+      setNotes(notes.map((n) => n.id === id ? updated : n));
+      showToast("Note restored!");
+    }
   };
 
   const handleFavorite = async (id) => {
     const note = notes.find((n) => n.id === id);
     const updated = await updateNote(id, { favorite: !note.favorite });
-    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+    if (updated) {
+      setNotes(notes.map((n) => n.id === id ? updated : n));
+      showToast(updated.favorite ? "Added to favorites!" : "Removed from favorites.");
+    }
   };
 
   const handlePinned = async (id) => {
     const note = notes.find((n) => n.id === id);
     const updated = await updateNote(id, { pinned: !note.pinned });
-    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+    if (updated) {
+      setNotes(notes.map((n) => n.id === id ? updated : n));
+      showToast(updated.pinned ? "Pinned note to top!" : "Unpinned note.");
+    }
   };
 
   const handleShare = async (id) => {
     const note = notes.find((n) => n.id === id);
     const updated = await updateNote(id, { shared: !note.shared });
-    if (updated) setNotes(notes.map((n) => n.id === id ? updated : n));
+    if (updated) {
+      setNotes(notes.map((n) => n.id === id ? updated : n));
+      showToast(updated.shared ? "Shared note status active!" : "Removed from shared.");
+    }
   };
 
   return (
     <div className={`relative min-h-screen p-4 sm:p-6 ${darkMode ? "app-bg-dark text-white" : "app-bg-light text-black"}`}>
+      {/* Toast Notification */}
+      <Toast message={toastMsg} onClose={() => setToastMsg("")} darkMode={darkMode} />
 
       {/* Animated mid orb for dark mode */}
       {darkMode && <div className="dark-orb-mid" />}
@@ -184,9 +238,9 @@ export default function Dashboard({ user, onLogout }) {
 
           {showHomeExtras && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-              <StatsCard title="All Notes" count={activeNotes.length} darkMode={darkMode} onClick={() => setActiveSection("all")} />
-              <StatsCard title="Favorites" count={activeNotes.filter((n) => n.favorite).length} darkMode={darkMode} onClick={() => setActiveSection("favorites")} />
-              <StatsCard title="Pinned" count={pinnedNotes.length} darkMode={darkMode} onClick={() => setActiveSection("home")} />
+              <StatsCard title="All Notes" count={activeNotes.length} trend={allThisWeek} darkMode={darkMode} onClick={() => setActiveSection("all")} />
+              <StatsCard title="Favorites" count={activeNotes.filter((n) => n.favorite).length} trend={favThisWeek} darkMode={darkMode} onClick={() => setActiveSection("favorites")} />
+              <StatsCard title="Pinned" count={pinnedNotes.length} trend={pinnedThisWeek} darkMode={darkMode} onClick={() => setActiveSection("home")} />
             </div>
           )}
 

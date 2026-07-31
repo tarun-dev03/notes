@@ -33,9 +33,10 @@ export default function NotesGrid({
             No notes found in this section.
           </p>
         )}
-        {notes.map((note) => (
+        {notes.map((note, idx) => (
           <NoteCard
             key={note.id}
+            index={idx}
             note={note}
             onDelete={onDelete}
             onEdit={onEdit}

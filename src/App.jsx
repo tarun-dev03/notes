@@ -8,14 +8,23 @@ export default function App() {
   const [user, setUser] = useState(() => loadUser());
 
   useEffect(() => {
-    // Listen for auth state changes (handles OAuth redirect)
+    // Listen for auth state changes (handles OAuth redirect & email session)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
+          const rawName = session.user.user_metadata?.full_name;
+          const email = session.user.email || "";
+          const localPart = email.split("@")[0] || "User";
+          const formattedEmailName = localPart
+            .split(/[._-]+/)
+            .filter(Boolean)
+            .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+            .join(" ");
+
           const userData = {
-            name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0],
-            email: session.user.email,
-            provider: session.user.app_metadata?.provider || "google",
+            name: rawName || formattedEmailName,
+            email: email,
+            provider: session.user.app_metadata?.provider || "email",
           };
           saveUser(userData);
           setUser(userData);

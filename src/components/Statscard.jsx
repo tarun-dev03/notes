@@ -1,5 +1,6 @@
-export default function Statscard({ title, count, darkMode, onClick }) {
+export default function Statscard({ title, count, trend, darkMode, onClick }) {
   const Component = onClick ? "button" : "div";
+  const trendCount = typeof trend === "number" ? trend : 0;
 
   return (
     <Component
@@ -21,7 +22,7 @@ export default function Statscard({ title, count, darkMode, onClick }) {
       </p>
 
       <p className={`text-xs mt-1 ${darkMode ? "text-emerald-400/70" : "text-emerald-600"}`}>
-        +2 this week
+        +{trendCount} this week
       </p>
     </Component>
   );

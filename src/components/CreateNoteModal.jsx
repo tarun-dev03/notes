@@ -28,14 +28,14 @@ export default function CreateNoteModal({ onClose, onSave, editingNote, darkMode
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-backdrop"
       onClick={onClose}
     >
       <div
-        className={`rounded-3xl p-6 w-full max-w-lg animate-fade-up border ${
+        className={`rounded-3xl p-6 w-full max-w-lg animate-modal-pop border shadow-2xl transition-all ${
           darkMode
-            ? "bg-[#0f0f14]/95 border-white/8 text-white backdrop-blur-xl"
-            : "bg-white/95 border-white shadow-xl"
+            ? "bg-[#0f0f14]/95 border-white/10 text-white backdrop-blur-xl"
+            : "bg-white/95 border-white shadow-2xl"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
